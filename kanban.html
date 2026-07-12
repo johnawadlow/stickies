@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stickies</title>
+  <link rel="stylesheet" href="kanban.css">
+</head>
+<body>
+
+<!-- ── Sidebar ─────────────────────────────────── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-bars" aria-hidden="true">
+      <span style="height:10px;opacity:.45"></span>
+      <span style="height:17px"></span>
+      <span style="height:12px;opacity:.65"></span>
+      <span style="height:7px;opacity:.35"></span>
+    </div>
+    <span class="app-name">Stickies</span>
+  </div>
+
+  <nav class="nav">
+    <button class="nav-item" id="nav-all">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="1" y="1" width="4" height="12" rx="1.2"/>
+        <rect x="6.5" y="1" width="4" height="7" rx="1.2"/>
+        <rect x="6.5" y="9.5" width="4" height="3.5" rx="1.2" opacity=".5"/>
+        <rect x="12" y="1" width="1" height="4" rx=".5" opacity=".4"/>
+      </svg>
+      All Projects
+    </button>
+
+    <div class="nav-section-label">Projects</div>
+    <div id="projects-nav"></div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <button class="new-proj-btn" id="new-proj-btn">
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+        <line x1="5.5" y1="1" x2="5.5" y2="10"/>
+        <line x1="1" y1="5.5" x2="10" y2="5.5"/>
+      </svg>
+      New Project
+    </button>
+    <button class="new-proj-btn" id="reload-data-btn" style="margin-top:6px" onclick="reloadBoard()">
+      ↺ Reload
+    </button>
+    <button class="new-proj-btn" style="margin-top:6px" onclick="exportData()">
+      ↓ Export JSON
+    </button>
+    <button class="new-proj-btn" style="margin-top:6px" onclick="importData()">
+      ↑ Import JSON
+    </button>
+    <a href="api.html" style="display:block;margin-top:10px;text-align:center;font-size:12px;color:#7a6a52;text-decoration:none">API reference</a>
+  </div>
+</aside>
+
+<!-- ── Main ───────────────────────────────────── -->
+<div class="main">
+  <div class="main-header" id="main-header">
+    <div class="header-dot" id="header-dot" style="display:none"></div>
+    <h1 id="header-title">All Projects</h1>
+    <button class="header-edit-btn" id="header-edit-btn" aria-label="Edit project">✏</button>
+  </div>
+  <div class="board-area" id="board-area"></div>
+</div>
+
+<!-- ── Add Card Modal ─────────────────────────── -->
+<div class="overlay" id="card-overlay">
+  <div class="modal">
+    <h2>Add Sticky</h2>
+    <div class="field">
+      <label for="card-title-inp">Title</label>
+      <input id="card-title-inp" type="text" placeholder="What needs to be done?" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="card-desc-inp">
+        Description
+        <span style="color:#8c8278;font-weight:400;text-transform:none;letter-spacing:0"> (optional)</span>
+      </label>
+      <textarea id="card-desc-inp" placeholder="Short summary shown on the card..."></textarea>
+    </div>
+    <div class="field">
+      <label for="card-notes-inp">
+        Notes
+        <span style="color:#8c8278;font-weight:400;text-transform:none;letter-spacing:0"> (optional)</span>
+      </label>
+      <textarea id="card-notes-inp" placeholder="Longer notes, links, details..." style="min-height:96px"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" id="card-cancel-btn">Cancel</button>
+      <button class="btn btn-submit" id="card-submit-btn">Add Card</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── New Project Modal ──────────────────────── -->
+<div class="overlay" id="proj-overlay">
+  <div class="modal">
+    <h2>New Project</h2>
+    <div class="field">
+      <label for="proj-name-inp">Project name</label>
+      <input id="proj-name-inp" type="text" placeholder="e.g. Password App" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Color</label>
+      <div class="cp">
+        <div class="cp-sq" id="cp-sq"><div class="cp-cur" id="cp-cur"></div></div>
+        <div class="cp-hue" id="cp-hue"><div class="cp-hue-th" id="cp-hue-th"></div></div>
+        <div class="cp-foot">
+          <div class="cp-prev" id="cp-prev"></div>
+          <input class="cp-hex" id="cp-hex" type="text" maxlength="7" spellcheck="false" autocomplete="off">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" id="proj-cancel-btn">Cancel</button>
+      <button class="btn btn-submit" id="proj-submit-btn">Create Project</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Confirm Modal ───────────────────────────── -->
+<div class="overlay" id="confirm-overlay">
+  <div class="modal" style="width:320px">
+    <h2 id="confirm-message">Are you sure?</h2>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" id="confirm-cancel-btn">Cancel</button>
+      <button class="btn btn-danger" id="confirm-ok-btn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Data Load Lock Overlay ──────────────────── -->
+<div class="overlay" id="lock-overlay">
+  <div class="modal">
+    <h2>Board not loaded</h2>
+    <p style="margin:0 0 18px;color:#5a4d3a;font-size:14px;line-height:1.5">
+      The board couldn't load its data from the local Stickies
+      server (<code>start-stickies.ps1</code>). Details below.
+    </p>
+    <div id="lock-error" style="display:none;margin:0 0 18px;padding:10px 12px;background:#fbe6e6;border:1px solid #c97a7a;border-radius:6px;color:#7a2a2a;font-size:13px;line-height:1.4;white-space:pre-wrap"></div>
+    <div class="modal-footer" style="justify-content:flex-end">
+      <button class="btn btn-submit" id="lock-load-btn">Retry</button>
+    </div>
+  </div>
+</div>
+
+<script src="kanban.js"></script>
+</body>
+</html>

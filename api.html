@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stickies API</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: #e8e3d5;
+      color: #2a2520;
+      line-height: 1.55;
+      padding: 40px 20px 80px;
+    }
+    .page { max-width: 860px; margin: 0 auto; }
+    h1 { font-size: 26px; margin-bottom: 4px; }
+    .subtitle { color: #7a6a52; font-size: 14px; margin-bottom: 8px; }
+    .back { font-size: 13px; margin-bottom: 32px; }
+    .back a { color: #5b82c4; text-decoration: none; }
+    .back a:hover { text-decoration: underline; }
+    h2 {
+      font-size: 15px; text-transform: uppercase; letter-spacing: .06em;
+      color: #7a6a52; margin: 36px 0 12px; border-bottom: 1px solid #d8d3c5;
+      padding-bottom: 6px;
+    }
+    .endpoint {
+      background: #faf7ef; border: 1px solid #ddd8cc; border-radius: 8px;
+      padding: 16px 18px; margin-bottom: 14px;
+    }
+    .sig { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+    .verb {
+      font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 4px;
+      color: #faf7ef; letter-spacing: .04em;
+    }
+    .verb.get  { background: #4e8e5a; }
+    .verb.post { background: #5b82c4; }
+    code, .mono {
+      font-family: Consolas, 'Cascadia Code', Menlo, monospace;
+      font-size: 13px;
+    }
+    .path { font-size: 15px; font-weight: 600; }
+    .endpoint p { font-size: 14px; color: #4a4540; margin-bottom: 8px; }
+    .endpoint p:last-child { margin-bottom: 0; }
+    table { border-collapse: collapse; width: 100%; font-size: 13.5px; margin: 10px 0 4px; }
+    th {
+      text-align: left; color: #7a6a52; font-weight: 600; font-size: 12px;
+      text-transform: uppercase; letter-spacing: .04em;
+      padding: 6px 12px 6px 0; border-bottom: 1px solid #ddd8cc;
+    }
+    td { padding: 7px 12px 7px 0; border-bottom: 1px solid #eae6da; vertical-align: top; color: #4a4540; }
+    tr:last-child td { border-bottom: none; }
+    td:first-child { white-space: nowrap; }
+    pre {
+      background: #edeade; border: 1px solid #ddd8cc; border-radius: 6px;
+      padding: 12px 14px; overflow-x: auto; font-size: 13px; margin: 8px 0;
+      font-family: Consolas, 'Cascadia Code', Menlo, monospace;
+    }
+    .note {
+      background: #fff4d6; border: 1px solid #e3cfa0; border-radius: 6px;
+      padding: 10px 14px; font-size: 13.5px; color: #5a4a1a; margin-bottom: 14px;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <h1>Stickies API</h1>
+  <div class="subtitle">start-stickies.ps1 &middot; http://localhost:8123 &middot; storage: stickies.db (SQLite via winsqlite3.dll)</div>
+  <div class="back"><a href="/">&larr; back to the board</a></div>
+
+  <div class="note">
+    Hand-maintained page. The authoritative op contract lives in the header comment of
+    <code>stickies-db.ps1</code>; if this page and that comment disagree, the comment wins.
+  </div>
+
+  <h2>Read</h2>
+  <div class="endpoint">
+    <div class="sig"><span class="verb get">GET</span><span class="path mono">/data</span></div>
+    <p>The board document: <code>{ projects: [ { id, name, color, board: { todo, inprogress, done } } ], view }</code>.
+       Cards are <code>{ id, title, desc, notes }</code>. Live stickies only, ordered by position.
+       Same envelope in every mode below; unknown <code>project</code> id returns an empty
+       <code>projects</code> array with 200.</p>
+    <table>
+      <tr><th>Query param</th><th>Effect</th></tr>
+      <tr><td><code>?titles=1</code></td><td>Cards shrink to <code>{ id, title }</code> (~8KB vs ~48KB full)</td></tr>
+      <tr><td><code>?project=&lt;id&gt;</code></td><td>Only that project's board</td></tr>
+      <tr><td><code>?list=1</code></td><td>Projects as <code>{ id, name, color }</code>, no boards (~0.7KB); wins over other params</td></tr>
+      <tr><td><code>?archived=1</code></td><td>The archived slice instead of the live one</td></tr>
+    </table>
+    <p><code>project</code>, <code>titles</code>, and <code>archived</code> compose:
+       <code>/data?project=kanban-001&amp;archived=1&amp;titles=1</code>.</p>
+  </div>
+
+  <h2>Write</h2>
+  <div class="endpoint">
+    <div class="sig"><span class="verb post">POST</span><span class="path mono">/op</span></div>
+    <p>One operation per request, JSON body, UTF-8. Each op runs as a single transaction and
+       (except <code>view-set</code>) writes an audit row with full old/new snapshots.
+       Success: <code>200 {"ok":true}</code>. Invalid or failed op: <code>400</code> with a plain-text reason.</p>
+    <table>
+      <tr><th>kind</th><th>Body</th></tr>
+      <tr><td><code>card-add</code></td><td><code>{ kind, projectId, col, card: { id, title, desc, notes } }</code></td></tr>
+      <tr><td><code>card-edit</code></td><td><code>{ kind, cardId, title, desc, notes }</code></td></tr>
+      <tr><td><code>card-move</code></td><td><code>{ kind, cardId, toProjectId, toCol, toIndex }</code></td></tr>
+      <tr><td><code>card-delete</code></td><td><code>{ kind, cardId }</code></td></tr>
+      <tr><td><code>card-archive</code></td><td><code>{ kind, cardId }</code> &mdash; flips the archived flag; card leaves the live board</td></tr>
+      <tr><td><code>project-add</code></td><td><code>{ kind, project: { id, name, color } }</code></td></tr>
+      <tr><td><code>project-edit</code></td><td><code>{ kind, projectId, name, color }</code></td></tr>
+      <tr><td><code>project-delete</code></td><td><code>{ kind, projectId }</code> &mdash; deletes its stickies too; audit row keeps the full snapshot</td></tr>
+      <tr><td><code>project-import</code></td><td><code>{ kind, projects: [ { id, name, color, board } ] }</code> &mdash; skips existing project ids</td></tr>
+      <tr><td><code>view-set</code></td><td><code>{ kind, view }</code> &mdash; no audit row</td></tr>
+    </table>
+    <p><code>col</code> is one of <code>todo</code> / <code>inprogress</code> / <code>done</code>.
+       Callers supply card/project ids; the readable convention is <code>&lt;prefix&gt;-t##</code> (see kb-t21).</p>
+  </div>
+
+  <h2>Static</h2>
+  <div class="endpoint">
+    <div class="sig"><span class="verb get">GET</span><span class="path mono">/&lt;file&gt;</span></div>
+    <p>Serves files from the workshop root (path-traversal guarded, <code>Cache-Control: no-store</code>).
+       <code>/</code> serves the board. Anything else: 404. Non-GET/POST methods: 405.</p>
+  </div>
+
+  <h2>Examples</h2>
+  <pre># PowerShell - cheap orientation read
+Invoke-RestMethod 'http://localhost:8123/data?titles=1'
+
+# PowerShell - add a sticky
+$op = @{ kind='card-add'; projectId='kanban-001'; col='todo';
+         card=@{ id='kb-t99'; title='Example'; desc=''; notes='' } } | ConvertTo-Json
+Invoke-RestMethod http://localhost:8123/op -Method Post -ContentType 'application/json' -Body $op</pre>
+  <pre>// JavaScript - what the board itself does
+const doc = await (await fetch('/data')).json();
+await fetch('/op', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify({ kind: 'view-set', view: 'all' }) });</pre>
+
+  <h2>Not HTTP</h2>
+  <div class="endpoint">
+    <p>Server down? Dot-source <code>stickies-db.ps1</code> (pwsh) and call the same layer directly:
+       <code>Open-StickiesDb</code>, <code>Invoke-StickiesOp</code>, <code>Export-StickiesJson</code>
+       (same filters as switches: <code>-ProjectId -TitlesOnly -ProjectList -Archived</code>).
+       The audit table is plain SQL away: <code>SELECT * FROM audit ORDER BY id DESC</code>.</p>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,42 @@
+{
+  "kind": "project-import",
+  "projects": [
+    {
+      "id": "gs-001",
+      "name": "Getting Started",
+      "color": "#3fb950",
+      "board": {
+        "todo": [
+          {
+            "id": "gs-t02",
+            "title": "Create your own project",
+            "desc": "Use the + button to add a project. Give it a short id prefix (like gs) so sticky ids stay readable.",
+            "notes": ""
+          },
+          {
+            "id": "gs-t03",
+            "title": "Try the API page",
+            "desc": "Open /api.html for the REST contract: scoped reads on GET /data and the op vocabulary on POST /op.",
+            "notes": "Every write is one transaction plus one audit row with full before/after snapshots."
+          }
+        ],
+        "inprogress": [
+          {
+            "id": "gs-t01",
+            "title": "Drag this sticky to Done",
+            "desc": "Stickies drag between columns. Click a sticky to edit its title, description, and notes.",
+            "notes": ""
+          }
+        ],
+        "done": [
+          {
+            "id": "gs-t00",
+            "title": "Start the server",
+            "desc": "You already did this one.",
+            "notes": ""
+          }
+        ]
+      }
+    }
+  ]
+}
