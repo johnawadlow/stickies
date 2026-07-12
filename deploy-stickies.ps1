@@ -1,6 +1,6 @@
 ﻿param([Parameter(Mandatory = $true)][string]$Target)
 
-$files = 'kanban.html', 'kanban.css', 'kanban.js', 'api.html',
+$files = 'stickies.html', 'stickies.css', 'stickies.js', 'api.html',
          'start-stickies.ps1', 'stickies-db.ps1', 'stickies-mcp.ps1'
 
 if (-not (Test-Path $Target)) {

@@ -1,8 +1,24 @@
-﻿param([int]$Port = 8123)
+﻿param([int]$Port)
 
 $root = $PSScriptRoot
 . (Join-Path $root 'stickies-db.ps1')
 $db = Open-StickiesDb (Join-Path $root 'stickies.db')
+
+# Per-instance config lives next to the deployed scripts, like the db.
+# An explicit -Port argument wins over the config file.
+$config = @{ port = 8123; title = 'Stickies' }
+$configPath = Join-Path $root 'stickies.config.json'
+if (Test-Path $configPath) {
+  try {
+    $c = Get-Content -Raw -Encoding UTF8 $configPath | ConvertFrom-Json
+    if ($c.port)  { $config.port  = [int]$c.port }
+    if ($c.title) { $config.title = [string]$c.title }
+  } catch {
+    Write-Host "Ignoring stickies.config.json - not valid JSON: $($_.Exception.Message)"
+  }
+}
+if ($PSBoundParameters.ContainsKey('Port')) { $config.port = $Port }
+$Port = $config.port
 
 $mime = @{
   '.html' = 'text/html; charset=utf-8'
@@ -68,6 +84,11 @@ try {
         $res.OutputStream.Write($bytes, 0, $bytes.Length)
         Write-Host "POST /op  $($op.kind)"
       }
+      elseif ($req.HttpMethod -eq 'GET' -and $path -eq '/config') {
+        $res.ContentType = 'application/json; charset=utf-8'
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes(('{"title":' + ($config.title | ConvertTo-Json) + '}'))
+        $res.OutputStream.Write($bytes, 0, $bytes.Length)
+      }
       elseif ($req.HttpMethod -eq 'GET' -and $path -eq '/data') {
         # Scoped reads (kb-t22): ?project=<id>, ?titles=1, ?list=1, ?archived=1
         # (list wins; the others compose). Bare /data stays the full live board.
@@ -78,7 +99,7 @@ try {
         $res.OutputStream.Write($bytes, 0, $bytes.Length)
       }
       elseif ($req.HttpMethod -eq 'GET') {
-        if ($path -eq '/') { $path = '/kanban.html' }
+        if ($path -eq '/') { $path = '/stickies.html' }
         $file = [System.IO.Path]::GetFullPath((Join-Path $root ($path.TrimStart('/') -replace '/', '\')))
         if (-not $file.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase) -or -not (Test-Path $file -PathType Leaf)) {
           $res.StatusCode = 404

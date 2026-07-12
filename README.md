@@ -4,7 +4,7 @@ A local-first kanban board with zero installs: a PowerShell HTTP server, SQLite 
 
 - **Server** — `start-stickies.ps1`: an `HttpListener` (http.sys, same kernel driver as IIS) serving the static UI plus a small REST API on `http://localhost:8123`.
 - **Storage** — `stickies-db.ps1`: SQLite through `winsqlite3.dll` (ships in System32 on Windows 10+), P/Invoked over the UTF-16 API family so PowerShell 5.1's ANSI encoding defaults can't corrupt text. Every write is one transaction plus one audit row carrying full before/after JSON snapshots.
-- **Board** — `kanban.html` / `kanban.css` / `kanban.js`: plain HTML/CSS/JS, no framework, served by the same server.
+- **Board** — `stickies.html` / `stickies.css` / `stickies.js`: plain HTML/CSS/JS, no framework, served by the same server.
 - **MCP server** — `stickies-mcp.ps1`: a stdio MCP server (JSON-RPC 2.0 in pure PowerShell) exposing the board to AI tooling as three tools: `board-read`, `board-op`, `audit-query`.
 - **API docs** — `api.html`: the REST contract, served at `/api.html`.
 
@@ -33,13 +33,27 @@ $db = Open-StickiesDb .\stickies.db
 Export-StickiesJson $db | Set-Content kanban-data.json -Encoding UTF8
 ```
 
+## Configuration
+
+Each instance can carry a `stickies.config.json` next to the deployed scripts (copy `stickies.config.sample.json` to start):
+
+```json
+{
+  "port": 8124,
+  "title": "VCV Stickies"
+}
+```
+
+Both keys are optional — defaults are port `8123` and title `Stickies`. The title shows in the browser tab and the sidebar. An explicit `-Port` argument to `start-stickies.ps1` overrides the config file. The config is per-instance identity, like the database: it lives with the deployed folder and stays out of this repo.
+
 ## Running more than one board
 
-Instances are isolated by folder: each deployed copy keeps its own `stickies.db` next to its own scripts. Deploy to a second folder and pick a different port:
+Instances are isolated by folder: each deployed copy keeps its own `stickies.db` and `stickies.config.json` next to its own scripts. Deploy to a second folder and give it its own port and title:
 
 ```powershell
 .\deploy-stickies.ps1 -Target C:\somewhere\else
-C:\somewhere\else\start-stickies.ps1 -Port 8124
+# drop a stickies.config.json in the target, then
+C:\somewhere\else\start-stickies.ps1
 ```
 
 ## Deploying

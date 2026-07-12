@@ -172,7 +172,7 @@ async function reloadBoard() {
 async function exportData() {
   try {
     const fh = await window.showSaveFilePicker({
-      suggestedName: 'kanban-export.json',
+      suggestedName: 'stickies-export.json',
       types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
     });
     const writable = await fh.createWritable();
@@ -689,11 +689,25 @@ async function loadBoard() {
   }
 }
 
+async function applyConfig() {
+  try {
+    const res = await fetch('/config', { cache: 'no-store' });
+    const cfg = await res.json();
+    if (cfg.title) {
+      document.title = cfg.title;
+      document.querySelector('.app-name').textContent = cfg.title;
+    }
+  } catch {
+    // no config endpoint / bad response: keep the static title from the HTML
+  }
+}
+
 document.getElementById('lock-load-btn').addEventListener('click', loadBoard);
 
 if (location.protocol === 'file:') {
   showLock();
   showLockError('This board now runs from the local Stickies server.\nRun start-stickies.ps1 — it opens the board in your browser automatically.');
 } else {
+  applyConfig();
   loadBoard();
 }
