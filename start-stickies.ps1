@@ -101,7 +101,7 @@ try {
       elseif ($req.HttpMethod -eq 'GET') {
         if ($path -eq '/') { $path = '/stickies.html' }
         $file = [System.IO.Path]::GetFullPath((Join-Path $root ($path.TrimStart('/') -replace '/', '\')))
-        if (-not $file.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase) -or -not (Test-Path $file -PathType Leaf)) {
+        if (-not $file.StartsWith($root.TrimEnd('\') + '\', [System.StringComparison]::OrdinalIgnoreCase) -or -not (Test-Path $file -PathType Leaf)) {
           $res.StatusCode = 404
         }
         else {
