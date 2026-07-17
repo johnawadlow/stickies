@@ -9,7 +9,7 @@
 # Op contract (POST /op bodies; also callable directly via Invoke-StickiesOp):
 #   view-set       { kind, view }
 #   card-add       { kind, projectId, col, card: { id, title, desc, notes } }
-#   card-edit      { kind, cardId, title, desc, notes }
+#   card-edit      { kind, cardId, title, desc, notes }   (edit ops merge: omitted field = unchanged, '' clears)
 #   card-delete    { kind, cardId }
 #   card-move      { kind, cardId, toProjectId, toCol, toIndex }
 #   card-archive   { kind, cardId }
@@ -211,6 +211,12 @@ function Get-Field {
     return $v
 }
 
+function Test-Field {
+    param($Obj, [string]$Name)
+    if ($Obj -is [System.Collections.IDictionary]) { return $Obj.Contains($Name) }
+    return $null -ne $Obj.PSObject.Properties[$Name]
+}
+
 function Get-StickySnapshot {
     param($Db, [string]$Id)
     $rows = $Db.Query('SELECT id, project_id, col, position, title, "desc", notes, archived FROM stickies WHERE id = ?', @($Id))
@@ -275,8 +281,11 @@ function Invoke-StickiesOp {
             'card-edit' {
                 $old = Get-StickySnapshot $Db $Op.cardId
                 if ($null -eq $old) { throw "card-edit: no sticky with id $($Op.cardId)" }
+                $title = if (Test-Field $Op 'title') { Get-Field $Op 'title' } else { $old.title }
+                $desc  = if (Test-Field $Op 'desc')  { Get-Field $Op 'desc' }  else { $old.desc }
+                $notes = if (Test-Field $Op 'notes') { Get-Field $Op 'notes' } else { $old.notes }
                 $Db.Execute('UPDATE stickies SET title = ?, "desc" = ?, notes = ? WHERE id = ?',
-                    @($Op.title, (Get-Field $Op 'desc'), (Get-Field $Op 'notes'), $Op.cardId))
+                    @($title, $desc, $notes, $Op.cardId))
                 Add-AuditRow $Db 'card-edit' $Op.cardId $old (Get-StickySnapshot $Db $Op.cardId)
             }
 
@@ -309,6 +318,7 @@ function Invoke-StickiesOp {
             'card-archive' {
                 $old = Get-StickySnapshot $Db $Op.cardId
                 if ($null -eq $old) { throw "card-archive: no sticky with id $($Op.cardId)" }
+                if ($old.archived) { throw "card-archive: sticky $($Op.cardId) is already archived" }
                 $Db.Execute('UPDATE stickies SET archived = 1 WHERE id = ?', @($Op.cardId))
                 Set-ColumnOrder $Db $old.projectId $old.col
                 Add-AuditRow $Db 'card-archive' $Op.cardId $old (Get-StickySnapshot $Db $Op.cardId)
@@ -324,7 +334,9 @@ function Invoke-StickiesOp {
             'project-edit' {
                 $old = Get-ProjectSnapshot $Db $Op.projectId
                 if ($null -eq $old) { throw "project-edit: no project with id $($Op.projectId)" }
-                $Db.Execute('UPDATE projects SET name = ?, color = ? WHERE id = ?', @($Op.name, $Op.color, $Op.projectId))
+                $name  = if (Test-Field $Op 'name')  { Get-Field $Op 'name' }  else { $old.name }
+                $color = if (Test-Field $Op 'color') { Get-Field $Op 'color' } else { $old.color }
+                $Db.Execute('UPDATE projects SET name = ?, color = ? WHERE id = ?', @($name, $color, $Op.projectId))
                 Add-AuditRow $Db 'project-edit' $null $old (Get-ProjectSnapshot $Db $Op.projectId)
             }
 

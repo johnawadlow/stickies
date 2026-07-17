@@ -49,7 +49,7 @@ $tools = @(
     }
     [ordered]@{
         name        = 'board-op'
-        description = 'Apply one write op to the Stickies board (same contract as POST /op; one transaction plus an audit row). Pass the op fields at the top level. Kinds: view-set {view}; card-add {projectId, col, card: {id, title, desc, notes}}; card-edit {cardId, title, desc, notes}; card-move {cardId, toProjectId, toCol, toIndex}; card-archive {cardId}; card-delete {cardId}; project-add {project: {id, name, color}}; project-edit {projectId, name, color}; project-delete {projectId}; project-import {projects: [...]}. col values: todo, inprogress, done. Card ids are caller-supplied; follow the board convention (project prefix + number, e.g. kb-t24).'
+        description = 'Apply one write op to the Stickies board (same contract as POST /op; one transaction plus an audit row). Pass the op fields at the top level. Kinds: view-set {view}; card-add {projectId, col, card: {id, title, desc, notes}}; card-edit {cardId, title, desc, notes}; card-move {cardId, toProjectId, toCol, toIndex}; card-archive {cardId}; card-delete {cardId}; project-add {project: {id, name, color}}; project-edit {projectId, name, color}; project-delete {projectId}; project-import {projects: [...]}. col values: todo, inprogress, done. Edit ops merge: an omitted field keeps its current value; send an empty string to clear. Card ids are caller-supplied; follow the board convention (project prefix + number, e.g. kb-t24).'
         inputSchema = [ordered]@{
             type                 = 'object'
             properties           = [ordered]@{
@@ -72,14 +72,14 @@ $tools = @(
                     required    = @('id', 'title')
                 }
                 cardId      = [ordered]@{ type = 'string'; description = 'card-edit / card-delete / card-move / card-archive: target card id' }
-                title       = [ordered]@{ type = 'string'; description = 'card-edit: full replacement value' }
-                desc        = [ordered]@{ type = 'string'; description = 'card-edit: full replacement value' }
-                notes       = [ordered]@{ type = 'string'; description = 'card-edit: full replacement value' }
+                title       = [ordered]@{ type = 'string'; description = 'card-edit: replacement value; omitted = unchanged' }
+                desc        = [ordered]@{ type = 'string'; description = 'card-edit: replacement value; omitted = unchanged' }
+                notes       = [ordered]@{ type = 'string'; description = 'card-edit: replacement value; omitted = unchanged' }
                 toProjectId = [ordered]@{ type = 'string' }
                 toCol       = [ordered]@{ type = 'string'; enum = @('todo', 'inprogress', 'done') }
                 toIndex     = [ordered]@{ type = 'integer' }
-                name        = [ordered]@{ type = 'string'; description = 'project-add (inside project) / project-edit' }
-                color       = [ordered]@{ type = 'string'; description = 'project-edit: hex color' }
+                name        = [ordered]@{ type = 'string'; description = 'project-add (inside project) / project-edit: replacement value; omitted = unchanged' }
+                color       = [ordered]@{ type = 'string'; description = 'project-edit: hex color; omitted = unchanged' }
                 project     = [ordered]@{
                     type        = 'object'
                     description = 'project-add: the new project'
