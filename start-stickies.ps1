@@ -98,6 +98,16 @@ try {
         $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
         $res.OutputStream.Write($bytes, 0, $bytes.Length)
       }
+      elseif ($req.HttpMethod -eq 'GET' -and $path -eq '/audit') {
+        # Audit trail (kb-t31): ?sticky=<id>, ?limit=<n> (default 20). Newest first.
+        $q = $req.QueryString
+        $limit = 20
+        if ($q['limit'] -and -not [int]::TryParse($q['limit'], [ref]$limit)) { $limit = 20 }
+        $json = Export-StickiesAuditJson $db -StickyId $q['sticky'] -Limit $limit
+        $res.ContentType = 'application/json; charset=utf-8'
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
+        $res.OutputStream.Write($bytes, 0, $bytes.Length)
+      }
       elseif ($req.HttpMethod -eq 'GET') {
         if ($path -eq '/') { $path = '/stickies.html' }
         $file = [System.IO.Path]::GetFullPath((Join-Path $root ($path.TrimStart('/') -replace '/', '\')))

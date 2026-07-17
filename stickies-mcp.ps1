@@ -129,27 +129,8 @@ function Invoke-ToolCall($Id, $Params) {
     elseif ($name -eq 'audit-query') {
         $limit = 20
         if ($toolArgs -and $toolArgs.limit) { $limit = [int]$toolArgs.limit }
-        $sql = 'SELECT id, ts, action, sticky_id, old_json, new_json FROM audit'
-        $sqlArgs = @()
-        if ($toolArgs -and $toolArgs.stickyId) {
-            $sql += ' WHERE sticky_id = ?'
-            $sqlArgs += [string]$toolArgs.stickyId
-        }
-        $sql += ' ORDER BY id DESC LIMIT ?'
-        $sqlArgs += $limit
-        $rows = $db.Query($sql, $sqlArgs)
-        $out = New-Object System.Collections.ArrayList
-        foreach ($r in $rows) {
-            [void]$out.Add([ordered]@{
-                    id       = $r['id']
-                    ts       = $r['ts']
-                    action   = $r['action']
-                    stickyId = $r['sticky_id']
-                    old      = $(if ($r['old_json']) { $r['old_json'] | ConvertFrom-Json } else { $null })
-                    new      = $(if ($r['new_json']) { $r['new_json'] | ConvertFrom-Json } else { $null })
-                })
-        }
-        Send-Result $Id (New-ToolResult (ConvertTo-Json -InputObject $out.ToArray() -Depth 10 -Compress))
+        $stickyId = if ($toolArgs) { [string]$toolArgs.stickyId } else { '' }
+        Send-Result $Id (New-ToolResult (Export-StickiesAuditJson $db -StickyId $stickyId -Limit $limit -Compress))
     }
     else {
         Send-RpcError $Id -32602 "Unknown tool: $name"

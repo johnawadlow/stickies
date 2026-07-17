@@ -60,6 +60,24 @@
       background: #fff4d6; border: 1px solid #e3cfa0; border-radius: 6px;
       padding: 10px 14px; font-size: 13.5px; color: #5a4a1a; margin-bottom: 14px;
     }
+    .audit-controls { display: flex; gap: 8px; margin-bottom: 10px; }
+    .audit-controls input {
+      border: 1px solid #ddd8cc; border-radius: 5px; padding: 5px 9px;
+      background: #fff; font-size: 13px; color: #2a2520;
+    }
+    #audit-sticky { width: 180px; }
+    #audit-limit { width: 60px; }
+    .audit-controls button {
+      border: 1px solid #ddd8cc; border-radius: 5px; padding: 5px 14px;
+      background: #edeade; font-size: 13px; color: #2a2520; cursor: pointer;
+    }
+    .audit-controls button:hover { background: #e3dfd0; }
+    .audit-row summary {
+      cursor: pointer; font-size: 13.5px; padding: 6px 0;
+      border-bottom: 1px solid #eae6da; color: #4a4540;
+    }
+    .audit-row:last-child summary { border-bottom: none; }
+    .audit-row pre { margin: 8px 0 12px; }
   </style>
 </head>
 <body>
@@ -90,6 +108,27 @@
     <p><code>project</code>, <code>titles</code>, and <code>archived</code> compose:
        <code>/data?project=kanban-001&amp;archived=1&amp;titles=1</code>.</p>
   </div>
+  <div class="endpoint">
+    <div class="sig"><span class="verb get">GET</span><span class="path mono">/audit</span></div>
+    <p>The audit trail, newest first: <code>[ { id, ts, action, stickyId, old, new } ]</code>.
+       <code>old</code>/<code>new</code> are the full before/after snapshots each op recorded;
+       <code>ts</code> is UTC. Same contract as the MCP <code>audit-query</code> tool.</p>
+    <table>
+      <tr><th>Query param</th><th>Effect</th></tr>
+      <tr><td><code>?sticky=&lt;id&gt;</code></td><td>Only rows for that sticky &mdash; "what happened to kb-t23"</td></tr>
+      <tr><td><code>?limit=&lt;n&gt;</code></td><td>Max rows (default 20)</td></tr>
+    </table>
+  </div>
+
+  <h2>Recent activity</h2>
+  <div class="endpoint">
+    <div class="audit-controls">
+      <input id="audit-sticky" class="mono" placeholder="sticky id (optional)">
+      <input id="audit-limit" class="mono" value="20">
+      <button id="audit-load">Load</button>
+    </div>
+    <div id="audit-rows"><p>Loading&hellip;</p></div>
+  </div>
 
   <h2>Write</h2>
   <div class="endpoint">
@@ -100,12 +139,12 @@
     <table>
       <tr><th>kind</th><th>Body</th></tr>
       <tr><td><code>card-add</code></td><td><code>{ kind, projectId, col, card: { id, title, desc, notes } }</code></td></tr>
-      <tr><td><code>card-edit</code></td><td><code>{ kind, cardId, title, desc, notes }</code></td></tr>
+      <tr><td><code>card-edit</code></td><td><code>{ kind, cardId, title, desc, notes }</code> &mdash; merges: omitted field = unchanged, <code>''</code> clears</td></tr>
       <tr><td><code>card-move</code></td><td><code>{ kind, cardId, toProjectId, toCol, toIndex }</code></td></tr>
       <tr><td><code>card-delete</code></td><td><code>{ kind, cardId }</code></td></tr>
-      <tr><td><code>card-archive</code></td><td><code>{ kind, cardId }</code> &mdash; flips the archived flag; card leaves the live board</td></tr>
+      <tr><td><code>card-archive</code></td><td><code>{ kind, cardId }</code> &mdash; card leaves the live board; re-archiving an archived card fails</td></tr>
       <tr><td><code>project-add</code></td><td><code>{ kind, project: { id, name, color } }</code></td></tr>
-      <tr><td><code>project-edit</code></td><td><code>{ kind, projectId, name, color }</code></td></tr>
+      <tr><td><code>project-edit</code></td><td><code>{ kind, projectId, name, color }</code> &mdash; merges like card-edit</td></tr>
       <tr><td><code>project-delete</code></td><td><code>{ kind, projectId }</code> &mdash; deletes its stickies too; audit row keeps the full snapshot</td></tr>
       <tr><td><code>project-import</code></td><td><code>{ kind, projects: [ { id, name, color, board } ] }</code> &mdash; skips existing project ids</td></tr>
       <tr><td><code>view-set</code></td><td><code>{ kind, view }</code> &mdash; no audit row</td></tr>
@@ -125,6 +164,9 @@
   <pre># PowerShell - cheap orientation read
 Invoke-RestMethod 'http://localhost:8123/data?titles=1'
 
+# PowerShell - what happened to a sticky
+Invoke-RestMethod 'http://localhost:8123/audit?sticky=kb-t23'
+
 # PowerShell - add a sticky
 $op = @{ kind='card-add'; projectId='kanban-001'; col='todo';
          card=@{ id='kb-t99'; title='Example'; desc=''; notes='' } } | ConvertTo-Json
@@ -138,9 +180,48 @@ await fetch('/op', { method: 'POST', headers: { 'Content-Type': 'application/jso
   <div class="endpoint">
     <p>Server down? Dot-source <code>stickies-db.ps1</code> (pwsh) and call the same layer directly:
        <code>Open-StickiesDb</code>, <code>Invoke-StickiesOp</code>, <code>Export-StickiesJson</code>
-       (same filters as switches: <code>-ProjectId -TitlesOnly -ProjectList -Archived</code>).
-       The audit table is plain SQL away: <code>SELECT * FROM audit ORDER BY id DESC</code>.</p>
+       (same filters as switches: <code>-ProjectId -TitlesOnly -ProjectList -Archived</code>),
+       <code>Export-StickiesAuditJson</code> (<code>-StickyId -Limit</code>).</p>
   </div>
 </div>
+<script>
+const esc = s => String(s).replace(/[&<>"']/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+async function loadAudit() {
+  const box    = document.getElementById('audit-rows');
+  const sticky = document.getElementById('audit-sticky').value.trim();
+  const limit  = document.getElementById('audit-limit').value.trim() || '20';
+  const url = '/audit?limit=' + encodeURIComponent(limit) +
+              (sticky ? '&sticky=' + encodeURIComponent(sticky) : '');
+  let rows;
+  try {
+    rows = await (await fetch(url)).json();
+  } catch {
+    box.innerHTML = '<p>Could not load /audit &mdash; is the Stickies server running?</p>';
+    return;
+  }
+  if (!rows.length) {
+    box.innerHTML = '<p>No audit rows' + (sticky ? ' for <code>' + esc(sticky) + '</code>' : '') + '.</p>';
+    return;
+  }
+  box.innerHTML = rows.map(r => {
+    const title = (r.new && (r.new.title || r.new.name)) || (r.old && (r.old.title || r.old.name)) || '';
+    const ts = new Date(r.ts).toLocaleString();
+    return `<details class="audit-row">
+      <summary><span class="mono">${esc(ts)}</span> &middot; <b>${esc(r.action)}</b>
+        <span class="mono">${esc(r.stickyId || '')}</span> ${esc(title)}</summary>
+      <pre>old: ${r.old ? esc(JSON.stringify(r.old, null, 2)) : 'null'}
+
+new: ${r.new ? esc(JSON.stringify(r.new, null, 2)) : 'null'}</pre>
+    </details>`;
+  }).join('');
+}
+
+document.getElementById('audit-load').addEventListener('click', loadAudit);
+document.querySelectorAll('.audit-controls input').forEach(el =>
+  el.addEventListener('keydown', e => { if (e.key === 'Enter') loadAudit(); }));
+loadAudit();
+</script>
 </body>
 </html>

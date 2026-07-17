@@ -421,6 +421,27 @@ function Export-StickiesJson {
     return ($doc | ConvertTo-Json -Depth 10 -Compress:$Compress)
 }
 
+function Export-StickiesAuditJson {
+    param($Db, [string]$StickyId, [int]$Limit = 20, [switch]$Compress)
+    $sql = 'SELECT id, ts, action, sticky_id, old_json, new_json FROM audit'
+    $sqlArgs = @()
+    if ($StickyId) { $sql += ' WHERE sticky_id = ?'; $sqlArgs += $StickyId }
+    $sql += ' ORDER BY id DESC LIMIT ?'
+    $sqlArgs += $Limit
+    $out = New-Object System.Collections.ArrayList
+    foreach ($r in $Db.Query($sql, $sqlArgs)) {
+        [void]$out.Add([ordered]@{
+                id       = $r['id']
+                ts       = $r['ts']
+                action   = $r['action']
+                stickyId = $r['sticky_id']
+                old      = $(if ($r['old_json']) { $r['old_json'] | ConvertFrom-Json } else { $null })
+                new      = $(if ($r['new_json']) { $r['new_json'] | ConvertFrom-Json } else { $null })
+            })
+    }
+    return (ConvertTo-Json -InputObject $out.ToArray() -Depth 10 -Compress:$Compress)
+}
+
 # One-time migration from the JSON files. Refuses to run against a non-empty DB.
 function Import-StickiesData {
     param($Db, [string]$LiveJsonPath, [string]$ArchiveJsonPath)
