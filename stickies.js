@@ -127,15 +127,20 @@ document.getElementById('cp-hex').addEventListener('input', e => {
 
 async function sendOp(op) {
   if (locked) return;
+  let res;
   try {
-    const res = await fetch('/op', {
+    res = await fetch('/op', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(op),
     });
-    if (!res.ok) throw new Error((await res.text()) || 'HTTP ' + res.status);
   } catch(err) {
     alert('Save failed — is the Stickies server still running?\n' + (err.message || err));
+    reloadBoard();
+    return;
+  }
+  if (!res.ok) {
+    alert('The server rejected this change, so the board will reload without it.\n' + ((await res.text()) || 'HTTP ' + res.status));
     reloadBoard();
   }
 }
@@ -234,7 +239,7 @@ function renderSidebar() {
     btn.innerHTML = `
       <span class="proj-dot" style="background:${proj.color}"></span>
       <span class="proj-name">${esc(proj.name)}</span>
-      <button class="del-proj" aria-label="Delete ${esc(proj.name)}" data-pid="${proj.id}">×</button>
+      <button class="del-proj" aria-label="Delete ${esc(proj.name)}" data-pid="${esc(proj.id)}">×</button>
     `;
     btn.addEventListener('click', e => {
       if (e.target.closest('.del-proj')) return;
@@ -465,11 +470,12 @@ document.addEventListener('drop', e => {
   const { id, fromCol, projectId: fromProjectId } = dragging;
 
   const fromProj = state.projects.find(p => p.id === fromProjectId);
+  const toProj   = state.projects.find(p => p.id === toProjectId);
+  if (!fromProj || !toProj) return;
   const srcIdx   = fromProj.board[fromCol].findIndex(c => c.id === id);
   if (srcIdx === -1) return;
 
   const [card] = fromProj.board[fromCol].splice(srcIdx, 1);
-  const toProj  = state.projects.find(p => p.id === toProjectId);
 
   // Count real cards before the ghost to get insertion index.
   let toIdx = toProj.board[toCol].length;
