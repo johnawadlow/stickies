@@ -60,24 +60,6 @@
       background: #fff4d6; border: 1px solid #e3cfa0; border-radius: 6px;
       padding: 10px 14px; font-size: 13.5px; color: #5a4a1a; margin-bottom: 14px;
     }
-    .audit-controls { display: flex; gap: 8px; margin-bottom: 10px; }
-    .audit-controls input {
-      border: 1px solid #ddd8cc; border-radius: 5px; padding: 5px 9px;
-      background: #fff; font-size: 13px; color: #2a2520;
-    }
-    #audit-sticky { width: 180px; }
-    #audit-limit { width: 60px; }
-    .audit-controls button {
-      border: 1px solid #ddd8cc; border-radius: 5px; padding: 5px 14px;
-      background: #edeade; font-size: 13px; color: #2a2520; cursor: pointer;
-    }
-    .audit-controls button:hover { background: #e3dfd0; }
-    .audit-row summary {
-      cursor: pointer; font-size: 13.5px; padding: 6px 0;
-      border-bottom: 1px solid #eae6da; color: #4a4540;
-    }
-    .audit-row:last-child summary { border-bottom: none; }
-    .audit-row pre { margin: 8px 0 12px; }
   </style>
 </head>
 <body>
@@ -118,16 +100,7 @@
       <tr><td><code>?sticky=&lt;id&gt;</code></td><td>Only rows for that sticky &mdash; "what happened to kb-t23"</td></tr>
       <tr><td><code>?limit=&lt;n&gt;</code></td><td>Max rows (default 20)</td></tr>
     </table>
-  </div>
-
-  <h2>Recent activity</h2>
-  <div class="endpoint">
-    <div class="audit-controls">
-      <input id="audit-sticky" class="mono" placeholder="sticky id (optional)">
-      <input id="audit-limit" class="mono" value="20">
-      <button id="audit-load">Load</button>
-    </div>
-    <div id="audit-rows"><p>Loading&hellip;</p></div>
+    <p>Browsable at <a href="/activity.html">/activity.html</a>.</p>
   </div>
 
   <h2>Write</h2>
@@ -184,44 +157,5 @@ await fetch('/op', { method: 'POST', headers: { 'Content-Type': 'application/jso
        <code>Export-StickiesAuditJson</code> (<code>-StickyId -Limit</code>).</p>
   </div>
 </div>
-<script>
-const esc = s => String(s).replace(/[&<>"']/g, c =>
-  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-
-async function loadAudit() {
-  const box    = document.getElementById('audit-rows');
-  const sticky = document.getElementById('audit-sticky').value.trim();
-  const limit  = document.getElementById('audit-limit').value.trim() || '20';
-  const url = '/audit?limit=' + encodeURIComponent(limit) +
-              (sticky ? '&sticky=' + encodeURIComponent(sticky) : '');
-  let rows;
-  try {
-    rows = await (await fetch(url)).json();
-  } catch {
-    box.innerHTML = '<p>Could not load /audit &mdash; is the Stickies server running?</p>';
-    return;
-  }
-  if (!rows.length) {
-    box.innerHTML = '<p>No audit rows' + (sticky ? ' for <code>' + esc(sticky) + '</code>' : '') + '.</p>';
-    return;
-  }
-  box.innerHTML = rows.map(r => {
-    const title = (r.new && (r.new.title || r.new.name)) || (r.old && (r.old.title || r.old.name)) || '';
-    const ts = new Date(r.ts).toLocaleString();
-    return `<details class="audit-row">
-      <summary><span class="mono">${esc(ts)}</span> &middot; <b>${esc(r.action)}</b>
-        <span class="mono">${esc(r.stickyId || '')}</span> ${esc(title)}</summary>
-      <pre>old: ${r.old ? esc(JSON.stringify(r.old, null, 2)) : 'null'}
-
-new: ${r.new ? esc(JSON.stringify(r.new, null, 2)) : 'null'}</pre>
-    </details>`;
-  }).join('');
-}
-
-document.getElementById('audit-load').addEventListener('click', loadAudit);
-document.querySelectorAll('.audit-controls input').forEach(el =>
-  el.addEventListener('keydown', e => { if (e.key === 'Enter') loadAudit(); }));
-loadAudit();
-</script>
 </body>
 </html>

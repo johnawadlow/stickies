@@ -7,6 +7,7 @@ A local-first kanban board with zero installs: a PowerShell HTTP server, SQLite 
 - **Board** — `stickies.html` / `stickies.css` / `stickies.js`: plain HTML/CSS/JS, no framework, served by the same server.
 - **MCP server** — `stickies-mcp.ps1`: a stdio MCP server (JSON-RPC 2.0 in pure PowerShell) exposing the board to AI tooling as three tools: `board-read`, `board-op`, `audit-query`.
 - **API docs** — `api.html`: the REST contract, served at `/api.html`.
+- **Activity** — `activity.html`: browsable audit trail (the `GET /audit` data with expandable before/after snapshots), served at `/activity.html`; also reachable from the board's Activity button.
 
 ## Quick start
 
@@ -58,7 +59,7 @@ C:\somewhere\else\start-stickies.ps1
 
 ## Deploying
 
-`deploy-stickies.ps1 -Target <folder>` copies the seven app files to the target. The repo is the source artifact; deployed folders are working locations. Data files never travel with a deploy and never belong in this repo.
+`deploy-stickies.ps1 -Target <folder>` copies the eight app files to the target. The repo is the source artifact; deployed folders are working locations. Data files never travel with a deploy and never belong in this repo.
 
 ## MCP (Claude Code and friends)
 
@@ -82,7 +83,8 @@ The relative `-File` path works when the deployed files sit in that project's ro
 Served by the running server at `/api.html`. Summary:
 
 - `GET /data` — the board as `{projects, view}`. Filters compose: `?project=<id>`, `?titles=1`, `?list=1`, `?archived=1`.
-- `POST /op` — one write op per call: `card-add`, `card-edit`, `card-move`, `card-archive`, `card-delete`, `project-add`, `project-edit`, `project-delete`, `project-import`, `view-set`.
+- `POST /op` — one write op per call: `card-add`, `card-edit`, `card-move`, `card-archive`, `card-delete`, `project-add`, `project-edit`, `project-delete`, `project-import`, `view-set`. Edit ops merge: omitted field = unchanged.
+- `GET /audit` — the audit trail, newest first: `?sticky=<id>`, `?limit=<n>`.
 
 ## Requirements
 

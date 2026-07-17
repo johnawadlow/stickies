@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stickies Activity</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: #e8e3d5;
+      color: #2a2520;
+      line-height: 1.55;
+      padding: 40px 20px 80px;
+    }
+    .page { max-width: 860px; margin: 0 auto; }
+    h1 { font-size: 26px; margin-bottom: 4px; }
+    .subtitle { color: #7a6a52; font-size: 14px; margin-bottom: 8px; }
+    .back { font-size: 13px; margin-bottom: 32px; }
+    .back a { color: #5b82c4; text-decoration: none; }
+    .back a:hover { text-decoration: underline; }
+    code, .mono {
+      font-family: Consolas, 'Cascadia Code', Menlo, monospace;
+      font-size: 13px;
+    }
+    .panel {
+      background: #faf7ef; border: 1px solid #ddd8cc; border-radius: 8px;
+      padding: 16px 18px;
+    }
+    pre {
+      background: #edeade; border: 1px solid #ddd8cc; border-radius: 6px;
+      padding: 12px 14px; overflow-x: auto; font-size: 13px; margin: 8px 0;
+      font-family: Consolas, 'Cascadia Code', Menlo, monospace;
+    }
+    .audit-controls { display: flex; gap: 8px; margin-bottom: 10px; }
+    .audit-controls input {
+      border: 1px solid #ddd8cc; border-radius: 5px; padding: 5px 9px;
+      background: #fff; font-size: 13px; color: #2a2520;
+    }
+    #audit-sticky { width: 180px; }
+    #audit-limit { width: 60px; }
+    .audit-controls button {
+      border: 1px solid #ddd8cc; border-radius: 5px; padding: 5px 14px;
+      background: #edeade; font-size: 13px; color: #2a2520; cursor: pointer;
+    }
+    .audit-controls button:hover { background: #e3dfd0; }
+    .audit-row summary {
+      cursor: pointer; font-size: 13.5px; padding: 6px 0;
+      border-bottom: 1px solid #eae6da; color: #4a4540;
+    }
+    .audit-row:last-child summary { border-bottom: none; }
+    .audit-row pre { margin: 8px 0 12px; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <h1>Activity</h1>
+  <div class="subtitle">the audit trail &middot; newest first &middot; every op's full before/after snapshots</div>
+  <div class="back"><a href="/">&larr; back to the board</a> &middot; <a href="/api.html">API reference</a></div>
+
+  <div class="panel">
+    <div class="audit-controls">
+      <input id="audit-sticky" class="mono" placeholder="sticky id (optional)">
+      <input id="audit-limit" class="mono" value="20">
+      <button id="audit-load">Load</button>
+    </div>
+    <div id="audit-rows"><p>Loading&hellip;</p></div>
+  </div>
+</div>
+<script>
+const esc = s => String(s).replace(/[&<>"']/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+async function loadAudit() {
+  const box    = document.getElementById('audit-rows');
+  const sticky = document.getElementById('audit-sticky').value.trim();
+  const limit  = document.getElementById('audit-limit').value.trim() || '20';
+  const url = '/audit?limit=' + encodeURIComponent(limit) +
+              (sticky ? '&sticky=' + encodeURIComponent(sticky) : '');
+  let rows;
+  try {
+    rows = await (await fetch(url)).json();
+  } catch {
+    box.innerHTML = '<p>Could not load /audit &mdash; is the Stickies server running?</p>';
+    return;
+  }
+  if (!rows.length) {
+    box.innerHTML = '<p>No audit rows' + (sticky ? ' for <code>' + esc(sticky) + '</code>' : '') + '.</p>';
+    return;
+  }
+  box.innerHTML = rows.map(r => {
+    const title = (r.new && (r.new.title || r.new.name)) || (r.old && (r.old.title || r.old.name)) || '';
+    const ts = new Date(r.ts).toLocaleString();
+    return `<details class="audit-row">
+      <summary><span class="mono">${esc(ts)}</span> &middot; <b>${esc(r.action)}</b>
+        <span class="mono">${esc(r.stickyId || '')}</span> ${esc(title)}</summary>
+      <pre>old: ${r.old ? esc(JSON.stringify(r.old, null, 2)) : 'null'}
+
+new: ${r.new ? esc(JSON.stringify(r.new, null, 2)) : 'null'}</pre>
+    </details>`;
+  }).join('');
+}
+
+document.getElementById('audit-load').addEventListener('click', loadAudit);
+document.querySelectorAll('.audit-controls input').forEach(el =>
+  el.addEventListener('keydown', e => { if (e.key === 'Enter') loadAudit(); }));
+loadAudit();
+</script>
+</body>
+</html>
